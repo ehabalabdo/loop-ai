@@ -3,6 +3,17 @@ import { BrandProfile, AdConcept, LogoPosition, CampaignSettings } from "../type
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+// --- FALLBACK ASSETS (Used when API Quota is Exceeded) ---
+const FALLBACK_LOGO = "https://placehold.co/500x500/EEE/31343C?text=Loop+AI+Logo&font=montserrat";
+const FALLBACK_PRODUCT = "https://placehold.co/600x800/222/FFF?text=Product+Image+Fallback&font=roboto";
+const FALLBACK_AD_VISUAL = "https://placehold.co/600x800/111/FFF?text=AI+Magic+Image+(Quota+Limit)&font=roboto";
+
+// Helper to detect Quota errors
+const isQuotaError = (error: any): boolean => {
+  const msg = error?.toString() || "";
+  return msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("quota") || msg.includes("exceeded");
+};
+
 export const generateBusinessNames = async (niche: string): Promise<string[]> => {
   try {
     const prompt = `
@@ -35,8 +46,12 @@ export const generateBusinessNames = async (niche: string): Promise<string[]> =>
     }
     return [];
   } catch (error) {
+    if (isQuotaError(error)) {
+      console.warn("Quota exceeded, returning fallback names.");
+      return ["Loop Creative", "Apex Solutions", "Nova Ventures", "Prime Service", "Core Systems"];
+    }
     console.error("Name Gen Error:", error);
-    return ["Apex Solutions", "Nova Ventures", "Prime Service", "Loop Innovation", "Core Systems"]; // Fallback
+    return ["Loop Creative", "Apex Solutions"];
   }
 };
 
@@ -74,12 +89,16 @@ export const generateImagePrompts = async (niche: string): Promise<string[]> => 
     }
     return [];
   } catch (error) {
+    if (isQuotaError(error)) {
+      console.warn("Quota exceeded, returning fallback prompts.");
+      return [
+        `Professional studio shot of ${niche} products with dramatic lighting.`,
+        `Lifestyle photo showing happy customers enjoying ${niche} services.`,
+        `Minimalist, clean composition representing modern ${niche} solutions.`
+      ];
+    }
     console.error("Prompt Gen Error:", error);
-    return [
-      `Professional shot of a ${niche} service in action`,
-      `Minimalist composition representing ${niche}`,
-      `High-quality product display for ${niche}`
-    ];
+    return [];
   }
 };
 
@@ -116,11 +135,14 @@ export const generateLogo = async (businessName: string, niche: string): Promise
         }
       }
     }
-    console.warn("Logo Generation Response:", response);
     throw new Error("No image generated.");
   } catch (error) {
+    if (isQuotaError(error)) {
+       console.warn("Quota exceeded, returning fallback logo.");
+       return FALLBACK_LOGO;
+    }
     console.error("Logo Gen Error:", error);
-    throw error;
+    return FALLBACK_LOGO;
   }
 };
 
@@ -153,8 +175,12 @@ export const generateProductImage = async (description: string, niche: string): 
     }
     throw new Error("No image generated.");
   } catch (error) {
+    if (isQuotaError(error)) {
+       console.warn("Quota exceeded, returning fallback product image.");
+       return FALLBACK_PRODUCT;
+    }
     console.error("Product Image Gen Error:", error);
-    throw error;
+    return FALLBACK_PRODUCT;
   }
 };
 
@@ -200,13 +226,14 @@ export const generateTargetingSuggestions = async (profile: BrandProfile): Promi
     }
     return {};
   } catch (e) {
-    console.error("Targeting Gen Error", e);
+    console.warn("Targeting Gen Error (likely quota), returning defaults.");
+    // Fallback on error
     return {
       objective: 'TRAFFIC',
       locations: 'United States',
       ageRange: '18-65',
       gender: 'ALL',
-      interests: 'General'
+      interests: 'General Interest'
     };
   }
 };
@@ -238,7 +265,8 @@ export const generateAdConcepts = async (
     `;
 
     const parts: any[] = [{ text: prompt }];
-    if (profile.productImage) {
+    if (profile.productImage && !profile.productImage.startsWith('http')) {
+      // Only attach image if it's base64, skip if it's a fallback URL
       parts.unshift({
         inlineData: {
           mimeType: "image/png",
@@ -282,8 +310,31 @@ export const generateAdConcepts = async (
     }
     throw new Error("No response from AI");
   } catch (error) {
+    if (isQuotaError(error)) {
+      console.warn("Quota exceeded, returning fallback concepts.");
+      return [
+        {
+          id: 'fallback-1',
+          headline: "Premium Quality & Service",
+          primaryText: "Experience the best in the market. tailored specifically for your needs. Join us today.",
+          cta: "Shop Now",
+          visualDescription: "High quality product shot",
+          designVibe: "Modern Luxury",
+          colorHex: "#D4AF37"
+        },
+        {
+          id: 'fallback-2',
+          headline: "Special Offer Just for You",
+          primaryText: "Limited time offer! Get amazing value when you sign up this week. Don't miss out.",
+          cta: "Learn More",
+          visualDescription: "Exciting lifestyle shot",
+          designVibe: "Vibrant & Bold",
+          colorHex: "#FF5733"
+        }
+      ];
+    }
     console.error("Gemini Error:", error);
-    throw error;
+    return [];
   }
 };
 
@@ -330,7 +381,7 @@ export const generateAdVisual = async (
 
     const parts: any[] = [{ text: prompt }];
 
-    if (productImageBase64) {
+    if (productImageBase64 && !productImageBase64.startsWith('http')) {
       parts.push({
         inlineData: {
           mimeType: "image/png",
@@ -339,7 +390,7 @@ export const generateAdVisual = async (
       });
     }
 
-    if (logoImageBase64) {
+    if (logoImageBase64 && !logoImageBase64.startsWith('http')) {
       parts.push({
         inlineData: {
           mimeType: "image/png",
@@ -369,7 +420,11 @@ export const generateAdVisual = async (
     throw new Error("No image generated.");
 
   } catch (error) {
+    if (isQuotaError(error)) {
+       console.warn("Quota exceeded, returning fallback visual.");
+       return FALLBACK_AD_VISUAL;
+    }
     console.error("Gemini Image Gen Error:", error);
-    throw error;
+    return FALLBACK_AD_VISUAL;
   }
 };
