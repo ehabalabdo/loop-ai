@@ -7,6 +7,10 @@ declare global {
       [key: string]: any;
     };
   }
+
+  interface ImportMeta {
+    env: Record<string, string>;
+  }
 }
 
 export interface UserProfile {

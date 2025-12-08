@@ -1,7 +1,20 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { BrandProfile, AdConcept, LogoPosition, CampaignSettings } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// PRODUCTION CHANGE: Safely retrieve API Key
+const getApiKey = () => {
+  // 1. Try process.env (Standard for this sandbox environment)
+  if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+    return process.env.API_KEY;
+  }
+  // 2. Try Vite env (Standard for production builds)
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GOOGLE_API_KEY) {
+    return import.meta.env.VITE_GOOGLE_API_KEY;
+  }
+  return "";
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 // --- FALLBACK ASSETS (Used when API Quota is Exceeded) ---
 const FALLBACK_LOGO = "https://placehold.co/500x500/EEE/31343C?text=Loop+AI+Logo&font=montserrat";
@@ -61,7 +74,7 @@ export const generateImagePrompts = async (niche: string): Promise<string[]> => 
       Generate 3 distinct, high-quality advertising image descriptions for a "${niche}" business.
       These descriptions will be used to generate images via AI.
       Focus on different angles: one product-focused, one lifestyle/action, and one minimal/artistic.
-      Keep them concise but visual (e.g., "A modern minimalist coffee cup on a wooden table with steam rising").
+      Keep them concise but visual (e.g. "A modern minimalist coffee cup on a wooden table with steam rising").
       Return a simple JSON object with a key "prompts" containing an array of strings.
     `;
 

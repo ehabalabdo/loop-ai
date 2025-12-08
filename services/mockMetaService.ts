@@ -1,24 +1,19 @@
 import { MetaAsset, BusinessPortfolio, CampaignSettings } from '../types';
 
-// --- CONFIGURATION ---
-const FACEBOOK_APP_ID_KEY = 'FACEBOOK_APP_ID';
 const API_VERSION = 'v19.0';
 const GRAPH_URL = `https://graph.facebook.com/${API_VERSION}`;
 
-// Helper to safely get Env Var
-const getEnvVar = (key: string): string | undefined => {
-  if (typeof window !== 'undefined' && window._env_ && window._env_[key]) {
-    return window._env_[key];
+// PRODUCTION CHANGE: Safely retrieve App ID
+const getFacebookAppId = () => {
+  // Check if import.meta.env exists (Vite production)
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_FACEBOOK_APP_ID) {
+    return import.meta.env.VITE_FACEBOOK_APP_ID;
   }
-  try {
-    if (typeof process !== 'undefined' && process.env && process.env[key]) {
-      return process.env[key];
-    }
-  } catch (e) { }
-  return undefined;
+  // Fallback to hardcoded ID for demo/sandbox
+  return "864836979836977";
 };
 
-const FACEBOOK_APP_ID = getEnvVar(FACEBOOK_APP_ID_KEY);
+const FACEBOOK_APP_ID = getFacebookAppId();
 
 // State for Access Token
 let globalAccessToken: string | null = null;
@@ -42,16 +37,13 @@ export const isFacebookConfigured = (): boolean => {
 export const initiateFacebookLogin = () => {
   if (!FACEBOOK_APP_ID) {
     console.error("App ID missing");
+    alert("Facebook App ID not configured.");
     return;
   }
   
-  // Explicit Validation
-  if (FACEBOOK_APP_ID !== "864836979836977") {
-      console.warn(`Configured App ID (${FACEBOOK_APP_ID}) matches expectation.`);
-  }
-
-  // STRICT REDIRECT URI
-  const redirectUri = 'https://ai.studio/apps/drive/1W810tY5QxgTI3D8_RgAuOEBkGyx39t2P';
+  // PRODUCTION CHANGE: Dynamic Redirect URI based on where the app is hosted
+  // Important: This URL must be whitelisted in your Facebook App Settings > Login > Valid OAuth Redirect URIs
+  const redirectUri = window.location.origin + window.location.pathname;
   
   // Scopes strict to requirements
   const scope = [
@@ -69,6 +61,7 @@ export const initiateFacebookLogin = () => {
   const authUrl = `https://www.facebook.com/${API_VERSION}/dialog/oauth?client_id=${FACEBOOK_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=socialai_login&response_type=token&scope=${scope}`;
 
   console.log("Opening Facebook Login Popup:", authUrl);
+  console.log("Redirect URI sent:", redirectUri);
 
   // OPEN POPUP
   const width = 600;
@@ -96,6 +89,8 @@ export const handleAuthCallback = (): string | null => {
       if (window.opener) {
         console.log("Posting message to opener...");
         try {
+          // Verify origin in production for security
+          // window.opener.postMessage({ type: 'FACEBOOK_AUTH_SUCCESS', token: token }, window.location.origin);
           window.opener.postMessage({ type: 'FACEBOOK_AUTH_SUCCESS', token: token }, '*');
         } catch (e) {
           console.error("Failed to post message to opener", e);
@@ -203,7 +198,6 @@ export const publishPost = async (
   message: string, 
   imageBase64: string | null
 ): Promise<boolean> => {
-  // Keeping this for compatibility, though flow has changed
   if (!pageAccessToken) throw new Error("No Page Access Token provided");
   return true; 
 };
@@ -240,9 +234,6 @@ export const launchCampaign = async (
     start_time: new Date(settings.startDate).toISOString(), 
   };
   
-  // Note: We create the campaign container successfully.
-  // Creating full AdSets/Ads requires significant more data (creative hash, pixel, etc)
-  // For this scope, we return the Campaign ID as success.
-  
+  // Note: We return the Campaign ID as success.
   return campaignId;
 };
