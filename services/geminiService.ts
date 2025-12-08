@@ -11,7 +11,8 @@ const getApiKey = () => {
   if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GOOGLE_API_KEY) {
     return import.meta.env.VITE_GOOGLE_API_KEY;
   }
-  return "";
+  // 3. Fallback to provided key
+  return "AIzaSyDD3GjnMSiqPTaWpyr8MdZjK0XZqV2hlZY";
 };
 
 const ai = new GoogleGenAI({ apiKey: getApiKey() });
